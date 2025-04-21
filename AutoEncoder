@@ -1,0 +1,76 @@
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.models import Model
+from tensorflow.keras.datasets import mnist
+import matplotlib.pyplot as plt
+
+# Load MNIST dataset
+(x_train, _), (x_test, _) = mnist.load_data()
+
+# Normalize the images to the range [0, 1]
+x_train = x_train.astype('float32') / 255.
+x_test = x_test.astype('float32') / 255.
+
+# Flatten the images to 1D (28*28 = 784)
+x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
+x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
+
+# Define the size of the encoded representation
+encoding_dim = 32
+
+# Input placeholder
+input_img = Input(shape=(784,))
+
+# Encoded representation
+encoded = Dense(encoding_dim, activation='relu')(input_img)
+
+# Decoded (reconstructed) output
+decoded = Dense(784, activation='sigmoid')(encoded)
+
+# Autoencoder model
+autoencoder = Model(input_img, decoded)
+
+# Encoder model
+encoder = Model(input_img, encoded)
+
+# Decoder model
+encoded_input = Input(shape=(encoding_dim,))
+decoder_layer = autoencoder.layers[-1]
+decoder = Model(encoded_input, decoder_layer(encoded_input))
+
+# Compile the autoencoder
+autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+
+# Train the autoencoder
+autoencoder.fit(
+    x_train, x_train,
+    epochs=50,
+    batch_size=256,
+    shuffle=True,
+    validation_data=(x_test, x_test)
+)
+
+# Encode and decode some digits
+encoded_imgs = encoder.predict(x_test)
+decoded_imgs = decoder.predict(encoded_imgs)
+
+# Display original and reconstructed images
+n = 10  # Number of digits to display
+plt.figure(figsize=(20, 4))
+for i in range(n):
+    # Original
+    ax = plt.subplot(2, n, i + 1)
+    plt.imshow(x_test[i].reshape(28, 28))
+    plt.gray()
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    # Reconstruction
+    ax = plt.subplot(2, n, i + 1 + n)
+    plt.imshow(decoded_imgs[i].reshape(28, 28))
+    plt.gray()
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+plt.show()
